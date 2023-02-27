@@ -6,7 +6,7 @@ import "../ElipticCurveTools.sol";
 
 contract zkVickreyAuctionC is Initializable{
 
-    address [] bidders;
+    mapping (address => bool) bidders;
 
     uint min_bid;
     uint bid_period;
@@ -16,10 +16,16 @@ contract zkVickreyAuctionC is Initializable{
 
     uint total_bidders;
 
+    modifier isRegistered(address bidder) {
+        require(bidders[bidder]);
+        _;
+    }
+
     modifier isNotFull () {
         require(total_bidders < max_bidders);
         _;
     }
+
 
     /** 
      * @param _min_bid Puja mínima
@@ -43,20 +49,27 @@ contract zkVickreyAuctionC is Initializable{
       * !Advertencia: es necesario el registro para poder interactuar en la puja 
       * !Advertencia: no se podrán realizar mas de max_bidders registros 
      */
-    function register() public isNotFull returns (bool){
+    function register() public isNotFull() returns (bool){
         total_bidders++;
-        bidders.push(msg.sender);
+        bidders[msg.sender] = true;
         return true;
         
     }
 
-    function bid() public{
-        /*commit()*/
-    }
-
-    function commit(uint256 _r , uint256 _m) internal {
-        /*c = m*G + r*H mod p*/
-
+    /** 
+      * bid()
+      * @notice Realiza un commit haciendo uso de la solucion de curva elíptica diseñada e importada,
+      * y devuelve el commit en dos componente (componentes x e y de la curva eliptica) que gestionará
+      * el usuario asociado
+      * !Advertencia: es necesario el registro para poder interactuar en la puja  
+     */
+    function bid(uint256 _r , uint256 _m) external isRegistered(msg.sender) returns (uint c1, uint c2) {
+        /*1.-*m*G*/
+        ElipticCurveToolsC ec = new ElipticCurveToolsC();
+        uint x;
+        uint y;
+        uint z;
+        (x,y,z) = ec.toJacobi(ec.Gx, ec.Gy);
     }
 
     function verify(uint256 _r , uint256 _m, uint256 id) internal{
