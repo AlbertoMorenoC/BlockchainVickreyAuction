@@ -2,25 +2,25 @@
 pragma solidity ^0.8.9;
 
 
-contract ElipticCurveToolsC {
+library ECTools {
 
     //Prime number on which the field of the curve is defined
-    uint256 public p = uint256(0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F);
+    uint256 constant public p = uint256(0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F);
     //Order of the curve (number of points)
-    uint256 public n = uint256(0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141);
+    uint256 constant public n = uint256(0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141);
     //Generator point G
-    uint256 public Gx = uint256(0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798);
-    uint256 public Gy = uint256(0x483ADA7726A3C4655DA4FBFC0E1108A8FD17B448A68554199C47D08FFB10D4B8);
+    uint256 constant public Gx = uint256(0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798);
+    uint256 constant public Gy = uint256(0x483ADA7726A3C4655DA4FBFC0E1108A8FD17B448A68554199C47D08FFB10D4B8);
     //Generator point H = SHA256(G*88007)
-    uint256 public Hx = uint256(0xebd39f73fc732204e5123f646ec73d2dae67154d1a67a593c65ea8c97dd1c5f4);
-    uint256 public Hy = uint256(0x30fb036d3d825fe98dfc416fa5333c48c105747deb749532eae09be85ff63dbe);
+    uint256 constant public Hx = uint256(0xebd39f73fc732204e5123f646ec73d2dae67154d1a67a593c65ea8c97dd1c5f4);
+    uint256 constant public Hy = uint256(0x30fb036d3d825fe98dfc416fa5333c48c105747deb749532eae09be85ff63dbe);
     //Subgroup cofactor
-    uint public h1 = 1;
+    uint256 constant public h1 = 1;
     //Curve coefficients 
-    uint public a = 0;
-    uint public b = 7;
+    uint256 constant public a = 0;
+    uint256 constant public b = 7;
 
-    function invMod(uint256 _x) internal view returns (uint256) {
+    function invMod(uint256 _x) internal pure returns (uint256) {
         require(_x != 0 && _x != p && p != 0, "Invalid number");
 
         uint256 q = 0;
@@ -37,13 +37,15 @@ contract ElipticCurveToolsC {
         return q;
     }
 
-    function toNon_Jacobi(uint256 _x,uint256 _y,uint256 _z) internal view returns (uint256 x1, uint256 y1)
+    function toNon_Jacobi(uint256 _x,uint256 _y,uint256 _z) internal pure returns (uint256 x1, uint256 y1)
     {
         uint inv_z = invMod(_z);
         uint inv_z2 = mulmod(inv_z, inv_z, p);
         uint inv_z3 = mulmod(inv_z, inv_z2, p);
         x1 = mulmod(_x, inv_z2, p);
         y1 = mulmod(_y, inv_z3, p);
+
+        return (x1,y1);
     }
 
     function toJacobi(uint256 _x, uint256 _y) internal pure returns (uint256 x1, uint256 y1, uint256 z1){
@@ -52,7 +54,7 @@ contract ElipticCurveToolsC {
 
     }
 
-    function cAdd(uint256 _x1, uint256 _y1, uint256 _x2, uint256 _y2,uint256 _z1, uint256 _z2) internal view returns (uint256 x1, uint256 y1, uint256 z1)
+    function cAdd(uint256 _x1, uint256 _y1, uint256 _x2, uint256 _y2,uint256 _z1, uint256 _z2) internal pure returns (uint256 x1, uint256 y1, uint256 z1)
     { 
         //Check trivial sum
         if ((_x1==0)&&(_y1==0)) return (_x2, _y2, _z2);
@@ -85,7 +87,7 @@ contract ElipticCurveToolsC {
         return(X3,Y3,Z3);
     }
 
-    function cDouble(uint256 _x1, uint256 _y1, uint256 _z1) internal view returns (uint256 x1, uint256 y1, uint256 z1)
+    function cDouble(uint256 _x1, uint256 _y1, uint256 _z1) internal pure returns (uint256 x1, uint256 y1, uint256 z1)
     {
         //Check trivial double
         if(_x1==0 && _y1==0) return(_x1,_y1,_z1);
@@ -117,7 +119,7 @@ contract ElipticCurveToolsC {
 
     }
 
-    function cMult (uint256 _x1, uint256 _y1, uint256 _z1, uint256 _v) internal view returns (uint256 x1, uint256 y1, uint256 z1){
+    function cMult (uint256 _x1, uint256 _y1, uint256 _z1, uint256 _v) internal pure returns (uint256 x1, uint256 y1, uint256 z1){
 
         //Check trivial mult
         if(_v==0) return(0,0,1);
