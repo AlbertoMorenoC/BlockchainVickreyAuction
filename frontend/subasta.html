@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/web3/1.2.7/web3.js"></script>
+  <style>
+    h1 {
+      margin: 25px;
+    }
+
+    body {
+      background-color: #fff;
+    }
+
+    .container {
+      margin-top: 50px;
+    }
+
+    .btn-register {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+    }
+
+    .btn-create-auction {
+      margin-top: 20px;
+    }
+
+    .table thead th {
+      background-color: #343a40;
+      color: #fff;
+    }
+
+    .linea-horizontal {
+      border-top: 1px solid #000;
+      margin: 35px 0;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <h1 id="auction-title" class="text-center"></h1>
+    <script>
+      const urlParams = new URLSearchParams(window.location.search);
+      const addr = urlParams.get('address'); 
+      const contractAddress = addr;
+      const name = urlParams.get('name'); 
+      const title = document.getElementById("auction-title");
+      title.textContent=name
+    </script>
+    <a href="#" class="btn btn-primary btn-register" onclick="llamarRegistro()">Registro</a>
+    <table class="table">
+      <thead class="table-dark">
+        <tr>
+          <th>Verificacion</th>
+          <th>Reclamo de recompensa</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td id="verificacion">Valor 2</td>
+          <td id="reclamo-recompensa">Valor 3</td>
+        </tr>
+      </tbody>
+    </table>
+    <hr class="linea-horizontal">
+    <!--<div class="row mt-4">
+      <div class="col">
+        <input id="rC" type="text" class="form-control" placeholder="r">
+      </div>
+      <div class="col">
+        <input id="mC" type="text" class="form-control" placeholder="m">
+      </div>
+    </div>
+    <hr>
+    <div class="d-flex justify-content-center">
+      <button onclick="llamarCommit()" class="btn btn-primary">Generar commit</button>
+    </div>
+    <div class="container mt-4">
+      <div class="row" style="margin-bottom:10px">
+        <div class="col-md-auto">
+          <label for="c1G">C1 :</label>
+        </div>
+        <div class="col-md-11">
+          <input type="text" id="c1G" class="form-control" readonly>
+        </div>
+      </div>
+      <div class="row" style="margin-bottom:10px">
+        <div class="col-md-auto">
+          <label for="c2G">C2 :</label>
+        </div>
+        <div class="col-md-11">
+          <input type="text" id="c2G" class="form-control" readonly>
+        </div>
+      </div>
+      <div class="row">
+        <div class="col-md-auto">
+          <label for="c3G">C3 :</label>
+        </div>
+        <div class="col-md-11">
+          <input type="text" id="c3G" class="form-control" readonly>
+        </div>
+      </div>
+    </div>
+    <hr class="linea-horizontal">-->
+    <div class="row mt-4">
+      <div class="col">
+        <input id="c1" type="text" class="form-control" placeholder="c1">
+      </div>
+      <div class="col">
+        <input id="c2" type="text" class="form-control" placeholder="c2">
+      </div>
+      <div class="col">
+        <input id="c3" type="text" class="form-control" placeholder="c3">
+      </div>
+    </div>
+
+    <button class="btn btn-primary mt-4" onclick="llamarPuja()">Puja</button>
+    <hr class="linea-horizontal">
+    <div class="row mt-4">
+      <div class="col">
+        <input id="rV" type="text" class="form-control" placeholder="r">
+      </div>
+      <div class="col">
+        <input id="mV" type="text" class="form-control" placeholder="m">
+      </div>
+    </div>
+
+    <button onclick="llamarVerificar()" class="btn btn-primary mt-4">Verificar</button>
+    <hr>
+    <div class="d-flex justify-content-center">
+      <button onclick="llamarRecompensa();" class="btn btn-primary mt-4">Comprobar Recompensa</button>
+    </div>
+    <hr class="linea-horizontal">
+    <script src="./auction.js"></script>
+    <script>
+      setTimeAuctionMetadata()
+    </script>
+</body>
+
+</html>
