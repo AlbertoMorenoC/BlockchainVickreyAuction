@@ -1,13 +1,3 @@
-# Sample Hardhat Project
+# Blockchain Vickrey Auction
 
-This project demonstrates a basic Hardhat use case. It comes with a sample contract, a test for that contract, and a script that deploys that contract.
-
-Try running some of the following tasks:
-
-```shell
-npx hardhat help
-npx hardhat test
-REPORT_GAS=true npx hardhat test
-npx hardhat node
-npx hardhat run scripts/deploy.ts
-```
+BlockchainVickreyAuction is a blockchain solution for Vickrey Auctions developed in Solidity and using Eliptic Curve Pedersen Commitment to keep anonimous bids. This project implements OpenZeppelin libraries to bring on upgradeability on Ethereum. 
