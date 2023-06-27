@@ -4,7 +4,7 @@ pragma solidity ^0.8.9;
 import "@openzeppelin/contracts/proxy/beacon/UpgradeableBeacon.sol";
 import "@openzeppelin/contracts/proxy/beacon/BeaconProxy.sol";
 
-import "./implementation/zkVickreyAuction.sol";
+import "./zkVickreyAuction.sol";
 
 contract AuctionFactoryC {
 

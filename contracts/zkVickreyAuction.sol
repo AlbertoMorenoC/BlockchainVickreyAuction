@@ -2,9 +2,9 @@
 pragma solidity ^0.8.9;
 
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import "../ElipticCurveTools.sol";
-import "../AuctionFactory.sol";
-import "../AuctionObjectToken.sol";
+import "./auxiliarContracts/ElipticCurveTools.sol";
+import "./AuctionFactory.sol";
+import "./auxiliarContracts/AuctionObjectToken.sol";
 
 contract zkVickreyAuctionC is Initializable{
 
