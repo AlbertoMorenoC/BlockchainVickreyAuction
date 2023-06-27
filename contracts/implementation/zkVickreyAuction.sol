@@ -3,6 +3,8 @@ pragma solidity ^0.8.9;
 
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "../ElipticCurveTools.sol";
+import "../AuctionFactory.sol";
+import "../AuctionObjectToken.sol";
 
 contract zkVickreyAuctionC is Initializable{
 
@@ -23,195 +25,264 @@ contract zkVickreyAuctionC is Initializable{
     mapping (address => bool) safeBid;
     mapping (address => Commit) public commits;
     mapping (address => uint) amountToRefund;
+    mapping(address => bool) isVerifiedBidder;
 
-    SpecialBidder max_bidder;
-    SpecialBidder second_max_bidder;
+    SpecialBidder public max_bidder;
+    SpecialBidder public second_max_bidder;
 
     address owner_address;
-    uint min_bid;
+    uint min_fee;
     uint bid_period;
     uint reveal_period;
     uint max_bidders;
     string url;
+    address factoryAddress;
+    address token_address;
 
     uint open_time;
     uint actual_time;
     uint total_bidders;
+    bool isBanned;
+
+    //Only for testing purposes
+    address [] testRegisters;
+    Commit [] testCommits;
+    bytes32 [] testVerify;
+    event AuctionCommits (Commit [] commits);
+    event AuctionVerification(bytes32 [] verifications);
+
+    event ActualRegisters(address [] registers);
+    event AuctionMetadata(uint b_p, uint r_p, uint min_f);
+    event CommitEvent(Commit commit);
+    event isCommitVerified(bool verified);
+    event isBidderWinner(bool isWinner);
 
     modifier isRegistered() {
-        require(bidders[msg.sender]);
+        require(bidders[msg.sender], "No estas registrado");
         _;
     }
 
     modifier hasNotBid(){
-        require(!safeBid[msg.sender]);
+        require(!safeBid[msg.sender], "Ya has pujado");
         _;
     }
 
     modifier hasBid(){
-        require(safeBid[msg.sender]);
+        require(safeBid[msg.sender], "No ha pujado aun");
         _;
     }
 
     modifier isNotFull () {
-        require(total_bidders < max_bidders);
+        require(total_bidders < max_bidders, "No hay huecos libres en la subasta");
         _;
     }
 
-    modifier isBidFinished() {
-        require(actual_time > open_time+bid_period);
+    modifier isBidPhase() {
+        require(block.timestamp < bid_period , "La fase de pujas ha finalizado");
         _;
     }
 
-    modifier isRevealFinished() {
-        require(actual_time > open_time+bid_period+reveal_period);
+    modifier isVerifyPhase() {
+        require(block.timestamp > bid_period && block.timestamp < reveal_period, "La subasta no esta en fase de verificacion");
         _;
     }
+
+    modifier isRevealPhase() {
+        require(block.timestamp > reveal_period, "La fase de reclamo de recompensas no ha comenzado");
+        _;
+    }
+
+    modifier isBidderVerified() {
+        require(isVerifiedBidder[msg.sender], "No ha verificado correctamente su puja");
+        _;
+    }
+
+    modifier isAuctionApproved() {
+        require(AuctionObjectToken(token_address).isCallerApproved(), "El subastador no ha concedido permiso sobre el token objeto de subasta");
+        _;
+    }
+
+    modifier isNotBanned() {
+        require(!isBanned, "Ha sido baneado de la subasta");
+        _;
+    }
+
 
 
     /** 
      * @param _owner_address Dirección del subastador en la cual quiere recibir el pago
-     * @param _min_bid Puja mínima (mínimo retenido por el contrato al momento de la puja)
+     * @param _min_fee Tasa mínima (mínimo retenido por el contrato al momento de la puja)
+     * @param _open_time Marca de tiempo en la que se comienza la subasta
      * @param _bid_period Periodo de puja
-     * @param _reveal_period Periodo del que disponen los interesados para comprobar
-     que su puja es menor a la ganadora (Bulletproof verification)
+     * @param _reveal_period Periodo del que disponen los interesados para verificar su puja.
      * @param _max_bidders Numero máximo de involucrados en la puja
      * @param _url Url del recurso a subastar, que ofrece contenido informativo
      */
-    function initialize(address _owner_address, uint _min_bid, uint _bid_period, uint _reveal_period, uint _max_bidders, string memory _url) external initializer{
+    function initialize(address _owner_address, uint _min_fee, uint _open_time, uint _bid_period, uint _reveal_period, uint _max_bidders, string memory _url, address _factory_address, address _token_address) external initializer{
         owner_address = _owner_address;
-        min_bid = _min_bid;
+        open_time = _open_time;
+        min_fee = _min_fee;
         bid_period =_bid_period;
         reveal_period =_reveal_period;
         max_bidders = _max_bidders;
         url = _url;
-        /*Call oracle for open_time -> open_time = */
+        factoryAddress = _factory_address;
+        token_address = _token_address;
     }
 
     /** 
       * register()
-      * @notice Los usuarios realizarán un registro antes de poder pujar.
-      * !Advertencia: es necesario el registro para poder interactuar en la puja 
+      * @notice Los usuarios realizarán un registro antes de poder pujar.W
       * !Advertencia: no se podrán realizar mas de max_bidders registros 
      */
     function register() public isNotFull() returns (bool){
         total_bidders++;
         bidders[msg.sender] = true;
+        testRegisters.push(msg.sender);
         return true;
         
     }
 
     /** 
       * commit()
-      * @notice Realiza un commit haciendo uso de la solucion de curva elíptica diseñada e importada,
-      * y devuelve el commit en componentes Jacobi (el usuario es responsable de pujar suministrando
-      * el commit generado sobre la funcion bid())
+      * @notice Realiza un compromiso haciendo uso de la solución de curva elíptica diseñada e importada,
+      * y devuelve el commit en componentes Jacobi. Esta función es utilizada únicamente de forma interna en la verificación,
+      * el compromiso de cada usuario se realiza de forma local.
       * !Advertencia: es necesario el registro para poder interactuar en la puja  
      */
-    function commit(uint256 _r , uint256 _m) public isRegistered() returns (uint c1, uint c2, uint c3) {
-        /*1.-r*G*/
+
+    function commit(uint256 _r , uint256 _m) internal view isRegistered() returns (uint c1, uint c2, uint c3){
+        /*1.r*G*/
         uint x1;
         uint y1;
         uint z1;
         (x1,y1,z1) = ECTools.toJacobi(ECTools.Gx, ECTools.Gy);
         (x1,y1,z1) = ECTools.cMult(x1, y1, z1, _r);
 
-        /*1.-m*H*/
+        /*2.m*H*/
         uint x2;
         uint y2;
         uint z2;
         (x2,y2,z2) = ECTools.toJacobi(ECTools.Hx, ECTools.Hy);
         (x2,y2,z2) = ECTools.cMult(x2, y2, z2, _m);
         
-        /*1.-r*G + m*H*/
+        /*3.r*G + m*H*/
         (c1,c2,c3) = ECTools.cAdd(x1,y1,z1, x2,y2,z2);
 
-        safeBid[msg.sender] = true;
-        return(c1,c2,c3);
-
+        return (c1,c2,c3);
     }
 
     /** 
       * bid()
-      * @notice Se suministra el commit para registrarlo como puja del postor. Se pagará un minimo
-      * para asegurar que el postor se compromete.
+      * @notice Se suministra el compromiso para registrarlo como puja del postor.
       * !Advertencia: es necesario el registro para poder interactuar en la puja  
-      * !Advertencia: solo es posible pujar una única vez por postor
+      * !Advertencia: solo es posible pujar una vez por postor
+      * !Advertencia: es necesario enviar el ether asociado a la tasa mínima de la subasta
      */
-    function bid(uint c1, uint c2, uint c3) isRegistered() hasNotBid() payable external{
-        require(msg.value == min_bid,"You are not sending min_bid to participate");
+    function bid(uint c1, uint c2, uint c3) isRegistered() hasNotBid() isAuctionApproved() isBidPhase() payable external{
+        require(msg.value == min_fee,"No has enviado la tasa minima de participacion");
         commits[msg.sender] = Commit(c1,c2,c3);
+        testCommits.push(Commit(c1,c2,c3));
+        safeBid[msg.sender] = true;
     }
 
     /** 
       * verify()
-      * @notice Una vez la subasta ha finalizado (opentime + bid_period), el postor puede suministrar 
-      * sus parametros secretos para comprobar el commitment. Si se verifica y corresponde con el ganador,
-      * se devuelve un 2.
-      * !Advertencia: es necesario el registro para poder verificar el commitment 
-      * !Advertencia: solo es posible la verficacion cuando haya trascurrido el tiempo de puja (bid_period)
+      * @notice Una vez la fase de pujas ha finalizado, el postor puede suministrar 
+      * sus parámetros secretos para comprobar su compromiso. Si no se verifica correctamente, el postor queda baneado.
+      * !Advertencia: es necesario el registro para poder verificar el compromiso
+      * !Advertencia: solo es posible la verficacion cuando haya trascurrido la fase de puja
+      * !Advertencia: es necesario enviar el ether asociado al valor de la puja que se cifró en el compromiso
      */
-    function verify(uint256 _r , uint256 _m) isRegistered() hasBid() isBidFinished() external payable returns (bool){
+    function verify(uint256 _r , uint256 _m) isRegistered() hasBid() isVerifyPhase() isNotBanned() external payable {
         uint x;
         uint y;
         uint z;
         bool isVerified;
         (x,y,z) = commit(_r,_m);
         Commit memory rcvdCommit = Commit(x,y,z);
+        testCommits.push(rcvdCommit);
 
-        //Compare stored commit with calculated one using given parameters
-        isVerified = keccak256(abi.encodePacked(commits[msg.sender].c1,commits[msg.sender].c1,
-        commits[msg.sender].c2,commits[msg.sender].c2)) == keccak256(abi.encodePacked(rcvdCommit.c1,rcvdCommit.c2,
-        rcvdCommit.c3)); 
+        bytes32 storedCommit = keccak256(abi.encodePacked(commits[msg.sender].c1,commits[msg.sender].c2,
+        commits[msg.sender].c3));
+        bytes32 actualCommit = keccak256(abi.encodePacked(rcvdCommit.c1,rcvdCommit.c2,
+        rcvdCommit.c3));
+        testVerify.push(storedCommit);
+        testVerify.push(actualCommit);
+
+        isVerified = (storedCommit == actualCommit); 
 
         if (isVerified) {
-            //check rest of deposit has been made
-            require(msg.value == _m - min_bid);
-            amountToRefund[msg.sender] = msg.value + min_bid;
-            //select winner once bid time has finished
+            require(msg.value == _m, "No ha pagado el valor de la oferta");
+            isVerifiedBidder[msg.sender] = true;
+            amountToRefund[msg.sender] = msg.value + min_fee;
             if(_m > max_bidder.value){
+                    second_max_bidder.bidder = max_bidder.bidder;
+                    second_max_bidder.value = max_bidder.value;
                     max_bidder.bidder = msg.sender;
                     max_bidder.value = _m;
+                    
             }else {
                 if(_m > second_max_bidder.value){
                     second_max_bidder.bidder = msg.sender;
                     second_max_bidder.value = _m;
                 }
             }
-            return true;
+            emit isCommitVerified(isVerified);
+        }else{
+            AuctionFactoryC factory = AuctionFactoryC(factoryAddress);
+            factory.banBidder(msg.sender);
+            isBanned = true;
         }
+        
 
-        return false;
     }
 
     /** 
-      * claimOwnership()
-      * @notice Los postores consultan si son los ganadores de la puja, y si no es asi, se les devuelve
+      * claimReward()
+      * @notice Los postores consultan si son los ganadores de la puja, y si no es así, se les devuelve
       * la cantidad retenida. El contrato destinará la cantidad pujada del ganador al dueño, y a él ganador
-      * se le otorgará una validación de su nueva propiedad (a elección del subastador, por ejemplo, un token)
-      * !Advertencia: es necesario el registro para poder verificar el commitment 
-      * !Advertencia: solo es posible la verficacion cuando haya trascurrido el tiempo de revelado (reveal_period)
+      * se le atribuye la propiedad del token que representa el objeto a subasta
+      * !Advertencia: es necesario el registro para poder reclamar la recompensa
+      * !Advertencia: solo es posible el reclamo cuando haya trascurrido el tiempo de verificación
      */
-    function claimOwnership() isRegistered() hasBid() isRevealFinished()  external returns (bool){
+    function claimReward() isRegistered() hasBid() isRevealPhase() isBidderVerified() external {
         if(msg.sender == max_bidder.bidder){
             delete amountToRefund[msg.sender];
-            //Winner is returned the diff between max and secondmax values (Vickrey)
-            payable(msg.sender).transfer(max_bidder.value - second_max_bidder.value);
-            //Auctionner gets payed the second max bid
+            payable(msg.sender).transfer((max_bidder.value-second_max_bidder.value)+min_fee);
+            AuctionObjectToken(token_address).transfer(msg.sender);
             payable(owner_address).transfer(second_max_bidder.value);
-            return true;
+            emit isBidderWinner(true);
         }else {
-            //Non-winners got all of its bid value
             payable(msg.sender).transfer(amountToRefund[msg.sender]);
             delete amountToRefund[msg.sender];
-            return false;
+            emit isBidderWinner(false);
         }
     }
-    
 
-    function testImplementation() public pure returns (string memory){
-        return "zkVickreyImplementation";
+    /** 
+      * getMetadata()
+      * @notice Utilizada por el frontend del sistema para obtener tiempos de las fases de la subasta y presentarlos al usuario.
+     */
+    function getMetadata() public {
+        emit AuctionMetadata(bid_period,reveal_period,min_fee);
     }
+    
+    //Función para obtener logs de la subasta. Permiten comprender que ha sucedido después de la ejecución de funciones importantes.
+    function testRegistered() public {
+        emit ActualRegisters(testRegisters);
+    }
+
+    //Función para obtener logs de la subasta. Permiten comprender que ha sucedido después de la ejecución de funciones importantes.
+    function testCommited() public {
+        emit AuctionCommits(testCommits);
+    }
+
+    //Función para obtener logs de la subasta. Permiten comprender que ha sucedido después de la ejecución de funciones importantes.
+    function testVerification() public {
+        emit AuctionVerification(testVerify);
+    }
+
 
 }
 

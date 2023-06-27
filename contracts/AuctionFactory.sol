@@ -10,34 +10,55 @@ contract AuctionFactoryC {
 
     struct Auction {
         uint auction_id;
-        string url;
+        string name;
+        address owner_address;
         address auction_proxy;
+        string url;
     }
 
     Auction [] auctions;
-    address [] auctioneersAddr;
     mapping (address => bool) public auctioneers;
+    mapping (address => bool) public bannedBidders;
+    mapping (address => bool) public auctionProxies;
 
+    address [] auctioneersAddr;
     address auctionBeacon;
+    address beaconOwner;
     address public logicContract;
+    uint auction_id;
+
+    event AuctionCreated(string name, address indexed addr);
+    event senderEvent(address adrr);
+    event Upgraded(address implementation);
 
     modifier onlyRegistered () {
         require(auctioneers[msg.sender]);
         _;
     }
 
+    modifier isOwner () {
+        require(msg.sender == beaconOwner);
+        _;
+    }
+    
+
     constructor (address _beaconOwner)  {
-        UpgradeableBeacon _auctionBeacon = new UpgradeableBeacon(address(new zkVickreyAuctionC()));
+        zkVickreyAuctionC logicContract = new zkVickreyAuctionC();
+        UpgradeableBeacon _auctionBeacon = new UpgradeableBeacon(address(logicContract));
         _auctionBeacon.transferOwnership(_beaconOwner);
         auctionBeacon = address(_auctionBeacon);
+        beaconOwner = _beaconOwner;
     }
 
 
-    function createAuction(uint _auction_id, uint _min_bid, uint _bid_period, uint _reveal_period, uint _max_bidders, string memory _url) public onlyRegistered returns (address){ 
+    function createAuction(string memory name ,address _owner_address, uint _min_fee, uint _bid_period, uint _reveal_period, uint _max_bidders, string memory _url, address _token_address) public onlyRegistered returns (address){ 
         BeaconProxy proxy = new BeaconProxy(auctionBeacon,
-            abi.encodeWithSelector(zkVickreyAuctionC.initialize.selector, _min_bid, _bid_period, _reveal_period, _max_bidders, _url)
+            abi.encodeWithSelector(zkVickreyAuctionC.initialize.selector,_owner_address, _min_fee, block.timestamp, _bid_period, _reveal_period, _max_bidders, _url, address(this),_token_address)
         );
-        auctions.push(Auction(_auction_id,_url,address(proxy)));
+        auction_id+=1;
+        auctions.push(Auction(auction_id,name,_owner_address,address(proxy),_url));
+        auctionProxies[address(proxy)] = true;
+        emit AuctionCreated(name, address(proxy));
         return address(proxy);
     }
 
@@ -47,18 +68,22 @@ contract AuctionFactoryC {
         auctioneersAddr.push(msg.sender);
     }
 
-    function allAuctions() public view returns (Auction [] memory){
-        return auctions;
+    function banBidder (address bidder) external {
+        require(auctionProxies[msg.sender], "Llamada realizada desde un contrato malicioso");
+        bannedBidders[bidder] = true;
     }
 
-    /*function allAuctionProxies() public view returns (address[] memory){
-        return auction_proxies;
-    }*/
+     function allAuctions() public view returns (Auction [] memory){
+        return auctions;
+    }  
 
-    /*function allAuctioneers() public view returns (address[] memory){
-        return auctioneersAddr;
-    }*/
+    function isBidderBanned(address bidder) public view returns (bool){
+        return bannedBidders[bidder];
+    }
 
-    
+    function changeBeaconImplementation(address implementation) external isOwner() {
+        UpgradeableBeacon(auctionBeacon).upgradeTo(implementation);
+        emit Upgraded(implementation);
+    }
 
 }

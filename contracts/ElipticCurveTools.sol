@@ -61,61 +61,64 @@ library ECTools {
         if ((_x2==0)&&(_y2==0)) return (_x1, _y1, _z1);
 
         //Compute auxiliar Zs
-        uint z1p2 = mulmod(_z1,_z1,p);
-        uint z1p3 = mulmod(_z1,z1p2,p);
-        uint z2p2 = mulmod(_z2,_z2,p);
-        uint z2p3 = mulmod(_z2,z2p2,p); 
+        uint [4] memory zss;
+        zss[0] = mulmod(_z1,_z1,p);  //zss[0]
+        zss[1] = mulmod(_z1,zss[0],p); //zss[1]
+        zss[2] = mulmod(_z2,_z2,p);  //zss[2]
+        zss[3] = mulmod(_z2,zss[2],p); //zss[3]
 
         //Compute auxiliar A,B,c,d
-        uint A = mulmod(_x1,z2p2,p);
-        uint B = addmod(mulmod(_x2,z1p2,p),p-A,p);
-        uint c = mulmod(_y1,z2p3,p);
-        uint d = addmod(mulmod(_y2,z1p3,p),p-c,p);
+        uint [4] memory const;
+        const[0] = mulmod(_x1,zss[2],p); //A
+        const[1] = addmod(mulmod(_x2,zss[0],p),p-const[0],p);//B
+        const[2] = mulmod(_y1,zss[3],p);//c
+        const[3] = addmod(mulmod(_y2,zss[1],p),p-const[2],p);//d
 
         //Compute result point x3,y3,z3 (info: Bernstein formulas use aux variables to organize computations)
-        uint e = mulmod(B,B,p);
-        uint f = mulmod(B,e,p);
-        uint g = mulmod(A,e,p);
+        uint e = mulmod(const[1],const[1],p);
+        uint f = mulmod(const[1],e,p);
+        uint g = mulmod(const[0],e,p);
         uint h = mulmod(_z1,_z2,p);
         uint f2g = addmod(mulmod(2,g,p),f,p);
-        uint X3 = addmod(mulmod(d,d,p),p-f2g,p);
-        uint Z3 = mulmod(B,h,p);
+        uint X3 = addmod(mulmod(const[3],const[3],p),p-f2g,p);
+        uint Z3 = mulmod(const[1],h,p);
         uint gx = addmod(g,p-X3,p);
-        uint cf = mulmod(c,f,p);
-        uint Y3 = addmod(mulmod(d,gx,p),p-cf,p);
+        uint cf = mulmod(const[2],f,p);
+        uint Y3 = addmod(mulmod(const[3],gx,p),p-cf,p);
 
         return(X3,Y3,Z3);
     }
 
+    //dbl-1998-cmo-2
     function cDouble(uint256 _x1, uint256 _y1, uint256 _z1) internal pure returns (uint256 x1, uint256 y1, uint256 z1)
     {
         //Check trivial double
         if(_x1==0 && _y1==0) return(_x1,_y1,_z1);
 
         //Compute auxiliar variables to get S and M
-        uint y1p2 = mulmod(_y1,_y1,p);
-        uint S = mulmod(4,mulmod(_x1,y1p2,p),p);
-
-        uint x1p2 = mulmod(_x1,_x1,p);
-        uint z1p2 = mulmod(_z1,_z1,p);
-        uint z1p4 = mulmod(z1p2,z1p2,p);
-        uint m1 = mulmod(3,x1p2,p);
-        //Maybe this operation is not needed -> a=0 for our ec
-        uint m2 = mulmod(a, z1p4,p);
+        uint [4] memory aux_coords;
+        aux_coords[0] = mulmod(_x1,_x1,p); //x1p2
+        aux_coords[1] = mulmod(_y1,_y1,p); //y1p2
+        aux_coords[2] = mulmod(_z1,_z1,p); //z1p2
+        aux_coords[3] = mulmod(aux_coords[2],aux_coords[2],p); //z1p4
+        uint m1 = mulmod(3,aux_coords[0],p);
+        uint m2 = mulmod(a, aux_coords[3],p);
+        uint S = mulmod(4,mulmod(_x1,aux_coords[1],p),p);
         uint M = addmod(m1,m2,p);
         
         //Compute aux variables to get final point
+        uint [3] memory XYZ;
         uint Mp2 = mulmod(M,M,p);
         uint s2 = mulmod(2,S,p);
         uint yz = mulmod(_y1,_z1,p);
-        uint X = addmod(Mp2,p-s2,p);
-        uint MSX = mulmod(M, addmod(S,p-X,p),p);
-        uint y1p4 = mulmod(y1p2,y1p2,p);
+        XYZ[0] = addmod(Mp2,p-s2,p); //X
+        uint MSX = mulmod(M, addmod(S,p-XYZ[0],p),p);
+        uint y1p4 = mulmod(aux_coords[1],aux_coords[1],p);
         uint y8p4 = mulmod(8,y1p4,p);
-        uint Y = addmod(MSX, p-y8p4,p);
-        uint Z = mulmod(2,yz,p);
+        XYZ[1] = addmod(MSX, p-y8p4,p); //Y
+        XYZ[2] = mulmod(2,yz,p); //Z
         
-        return(X,Y,Z);
+        return(XYZ[0],XYZ[1],XYZ[2]);
 
     }
 
