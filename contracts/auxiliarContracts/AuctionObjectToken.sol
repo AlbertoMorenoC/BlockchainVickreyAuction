@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-
+//CONTRATO TOKEN OBJETO SUBASTA
 contract AuctionObjectToken {
 
     string private _name;
@@ -23,19 +23,35 @@ contract AuctionObjectToken {
         _owner = msg.sender;
     }
 
+    /** 
+      * name()
+      * @notice Informa el nombre del token
+     */
     function name() external view returns (string memory) {
         return _name;
     }
 
+    /** 
+      * metadata()
+      * @notice Informa el url del documento informativo
+     */
     function metadata() external view returns (string memory) {
         return _metadata;
     }
 
-
+    /** 
+      * ownerOfToken()
+      * @notice Informa el propietario del token
+     */
     function ownerOfToken() external view returns (address) {
         return _owner;
     }
 
+    /** 
+      * approve(address to)
+      * @notice Aprueba a un contrato inteligente o dirección de cartera para que pueda realizar la transferencia de la propiedad del token.
+      * @param to Dirección aprobada
+     */
     function approve(address to) external {
         require(to != _owner, "No es posible aprobar al propietario");
         require(msg.sender == _owner,
@@ -45,6 +61,11 @@ contract AuctionObjectToken {
         _approve(to);
     }
 
+    /** 
+      * transfer(address to)
+      * @notice Transfiere la propiedad del token a un nuevo propietario
+      * @param to Dirección del nuevo propietario
+     */
      function transfer(
         address to
     ) external {
@@ -56,9 +77,14 @@ contract AuctionObjectToken {
         _transfer(_owner, to);
     }
 
+    /** 
+      * isCallerApproved()
+      * @notice Informa si el solicitante esta aprobado para la transferencia de la propiedad del token.
+     */
     function isCallerApproved() external view returns (bool){
         return _isApprovedOrOwner(msg.sender);
     }
+
 
     function _isApprovedOrOwner(address spender) internal view returns (bool) {
         return (spender == _owner || spender == _tokenApproval);
