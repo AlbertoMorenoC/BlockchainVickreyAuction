@@ -1,25 +1,31 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.9;
 
-
+//dbl-1998-cmo-2: Bernstein Formulas
 library ECTools {
 
-    //Prime number on which the field of the curve is defined
+    //Orden primo sobre el que se define el grupo sobre el que se define la curva elíptica
     uint256 constant public p = uint256(0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F);
-    //Order of the curve (number of points)
+    //Orden de la curva elíptica (Número de puntos que contiene)
     uint256 constant public n = uint256(0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141);
-    //Generator point G
+    //Punto generador G
     uint256 constant public Gx = uint256(0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798);
     uint256 constant public Gy = uint256(0x483ADA7726A3C4655DA4FBFC0E1108A8FD17B448A68554199C47D08FFB10D4B8);
-    //Generator point H = SHA256(G*88007)
+    //Punto generador H = SHA256(G*88007)
     uint256 constant public Hx = uint256(0xebd39f73fc732204e5123f646ec73d2dae67154d1a67a593c65ea8c97dd1c5f4);
     uint256 constant public Hy = uint256(0x30fb036d3d825fe98dfc416fa5333c48c105747deb749532eae09be85ff63dbe);
-    //Subgroup cofactor
+    //Cofactor de subgrupo
     uint256 constant public h1 = 1;
-    //Curve coefficients 
+    //Coeficientes de la curva elíptica
     uint256 constant public a = 0;
     uint256 constant public b = 7;
 
+
+    /** 
+      * invMod(uint256 _x)
+      * @notice Calcula el inverso modular
+      * @param _x Valor sobre el que se calcula el inverso
+     */
     function invMod(uint256 _x) internal pure returns (uint256) {
         require(_x != 0 && _x != p && p != 0, "Invalid number");
 
@@ -37,6 +43,13 @@ library ECTools {
         return q;
     }
 
+    /** 
+      * toNon_Jacobi(uint256 _x,uint256 _y,uint256 _z)
+      * @notice Conversión de representación de coordenadas Jacobi a cartesianas
+      * @param _x Coordenada x del punto dado
+      * @param _y Coordenada y del punto dado
+      * @param _z Coordenada z del punto dado
+     */
     function toNon_Jacobi(uint256 _x,uint256 _y,uint256 _z) internal pure returns (uint256 x1, uint256 y1)
     {
         uint inv_z = invMod(_z);
@@ -48,33 +61,49 @@ library ECTools {
         return (x1,y1);
     }
 
+    /** 
+      * toJacobi(uint256 _x, uint256 _y)
+      * @notice Conversión de representación de coordenadas cartesianas a Jacobi
+      * @param _x Coordenada x del punto dado
+      * @param _y Coordenada y del punto dado
+     */
     function toJacobi(uint256 _x, uint256 _y) internal pure returns (uint256 x1, uint256 y1, uint256 z1){
 
         return (_x,_y,1);
 
     }
 
+    /** 
+      * cAdd(uint256 _x1, uint256 _y1, uint256 _x2, uint256 _y2,uint256 _z1, uint256 _z2)
+      * @notice Suma de dos puntos 
+      * @param _x1 Coordenada x del primer punto dado
+      * @param _y1 Coordenada y del primer punto dado
+      * @param _z1 Coordenada z del primer punto dado
+      * @param _x2 Coordenada x del segundo punto dado
+      * @param _y2 Coordenada y del segundo punto dado
+      * @param _z2 Coordenada z del segundo punto dado
+     */
     function cAdd(uint256 _x1, uint256 _y1, uint256 _x2, uint256 _y2,uint256 _z1, uint256 _z2) internal pure returns (uint256 x1, uint256 y1, uint256 z1)
     { 
-        //Check trivial sum
+        //Comprobar el caso trivial
         if ((_x1==0)&&(_y1==0)) return (_x2, _y2, _z2);
         if ((_x2==0)&&(_y2==0)) return (_x1, _y1, _z1);
 
-        //Compute auxiliar Zs
+       
         uint [4] memory zss;
         zss[0] = mulmod(_z1,_z1,p);  //zss[0]
         zss[1] = mulmod(_z1,zss[0],p); //zss[1]
         zss[2] = mulmod(_z2,_z2,p);  //zss[2]
         zss[3] = mulmod(_z2,zss[2],p); //zss[3]
 
-        //Compute auxiliar A,B,c,d
+        
         uint [4] memory const;
         const[0] = mulmod(_x1,zss[2],p); //A
         const[1] = addmod(mulmod(_x2,zss[0],p),p-const[0],p);//B
         const[2] = mulmod(_y1,zss[3],p);//c
         const[3] = addmod(mulmod(_y2,zss[1],p),p-const[2],p);//d
 
-        //Compute result point x3,y3,z3 (info: Bernstein formulas use aux variables to organize computations)
+        
         uint e = mulmod(const[1],const[1],p);
         uint f = mulmod(const[1],e,p);
         uint g = mulmod(const[0],e,p);
@@ -89,13 +118,19 @@ library ECTools {
         return(X3,Y3,Z3);
     }
 
-    //dbl-1998-cmo-2
+    /** 
+      * cDouble(uint256 _x1, uint256 _y1, uint256 _z1)
+      * @notice Doble de un punto dado
+      * @param _x1 Coordenada x del punto dado
+      * @param _y1 Coordenada y del punto dado
+      * @param _z1 Coordenada z del punto dado
+     */
     function cDouble(uint256 _x1, uint256 _y1, uint256 _z1) internal pure returns (uint256 x1, uint256 y1, uint256 z1)
     {
-        //Check trivial double
+        //Comprobar el caso trivial
         if(_x1==0 && _y1==0) return(_x1,_y1,_z1);
 
-        //Compute auxiliar variables to get S and M
+        
         uint [4] memory aux_coords;
         aux_coords[0] = mulmod(_x1,_x1,p); //x1p2
         aux_coords[1] = mulmod(_y1,_y1,p); //y1p2
@@ -106,7 +141,7 @@ library ECTools {
         uint S = mulmod(4,mulmod(_x1,aux_coords[1],p),p);
         uint M = addmod(m1,m2,p);
         
-        //Compute aux variables to get final point
+        
         uint [3] memory XYZ;
         uint Mp2 = mulmod(M,M,p);
         uint s2 = mulmod(2,S,p);
@@ -122,9 +157,17 @@ library ECTools {
 
     }
 
+    /** 
+      * cMult(uint256 _x1, uint256 _y1, uint256 _z1, uint256 _v)
+      * @notice Producto de un punto por un factor dado
+      * @param _x1 Coordenada x del punto dado
+      * @param _y1 Coordenada y del punto dado
+      * @param _z1 Coordenada z del punto dado
+      * @param _v Factor v del producto
+     */
     function cMult (uint256 _x1, uint256 _y1, uint256 _z1, uint256 _v) internal pure returns (uint256 x1, uint256 y1, uint256 z1){
 
-        //Check trivial mult
+        //Comprobar el caso trivial
         if(_v==0) return(0,0,1);
 
         uint256 v_upd = _v;
@@ -135,7 +178,7 @@ library ECTools {
         uint256 Qy = 0;
         uint256 Qz = 1;
 
-        //Compute non-trivial case using double and add algorithm
+        //Computar el caso no trivial haciendo uso de cAdd y cDouble
         while(v_upd != 0) {
             if((v_upd & 1) != 0){
                 (Qx,Qy,Qz) = cAdd(Qx,Qy,Qz,Rx,Ry,Rz);
