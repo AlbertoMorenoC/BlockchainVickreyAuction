@@ -5,7 +5,7 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "./auxiliarContracts/ElipticCurveTools.sol";
 import "./AuctionFactory.sol";
 import "./auxiliarContracts/AuctionObjectToken.sol";
-
+//CONTRATO SUBASTA ÁNONIMA
 contract zkVickreyAuctionC is Initializable{
 
     using ECTools for uint;
@@ -44,7 +44,7 @@ contract zkVickreyAuctionC is Initializable{
     uint total_bidders;
     bool isBanned;
 
-    //Only for testing purposes
+    //Variables con el propósito de testing y la implementación de un frontend
     address [] testRegisters;
     Commit [] testCommits;
     bytes32 [] testVerify;
@@ -110,13 +110,15 @@ contract zkVickreyAuctionC is Initializable{
 
 
     /** 
+     * initialize(address _owner_address, uint _min_fee, uint _bid_period, uint _reveal_period, uint _max_bidders, string memory _url, address _factory_address, address _token_address)
      * @param _owner_address Dirección del subastador en la cual quiere recibir el pago
      * @param _min_fee Tasa mínima (mínimo retenido por el contrato al momento de la puja)
-     * @param _open_time Marca de tiempo en la que se comienza la subasta
      * @param _bid_period Periodo de puja
      * @param _reveal_period Periodo del que disponen los interesados para verificar su puja.
      * @param _max_bidders Numero máximo de involucrados en la puja
      * @param _url Url del recurso a subastar, que ofrece contenido informativo
+     * @param _factory_address Dirección del Contrato Generador Subastas que desplegó esta lógica
+     * @param _token_address Dirección del token que representa la propiedad del objeto a subasta
      */
     function initialize(address _owner_address, uint _min_fee, uint _open_time, uint _bid_period, uint _reveal_period, uint _max_bidders, string memory _url, address _factory_address, address _token_address) external initializer{
         owner_address = _owner_address;
@@ -144,10 +146,12 @@ contract zkVickreyAuctionC is Initializable{
     }
 
     /** 
-      * commit()
+      * commit(uint256 _r , uint256 _m)
       * @notice Realiza un compromiso haciendo uso de la solución de curva elíptica diseñada e importada,
       * y devuelve el commit en componentes Jacobi. Esta función es utilizada únicamente de forma interna en la verificación,
       * el compromiso de cada usuario se realiza de forma local.
+      * @param _r Representa el valor aleatorio del compromiso Pedersen
+      * @param _m Representa el valor de la oferta que se esconde detrás del compromiso Pedersen
       * !Advertencia: es necesario el registro para poder interactuar en la puja  
      */
 
@@ -173,8 +177,11 @@ contract zkVickreyAuctionC is Initializable{
     }
 
     /** 
-      * bid()
+      * bid(uint c1, uint c2, uint c3)
       * @notice Se suministra el compromiso para registrarlo como puja del postor.
+      * @param c1 Primera componente del compromiso Pedersen
+      * @param c2 Segunda componente del compromiso Pedersen
+      * @param c3 Tercera componente del compromiso Pedersen
       * !Advertencia: es necesario el registro para poder interactuar en la puja  
       * !Advertencia: solo es posible pujar una vez por postor
       * !Advertencia: es necesario enviar el ether asociado a la tasa mínima de la subasta
@@ -187,9 +194,11 @@ contract zkVickreyAuctionC is Initializable{
     }
 
     /** 
-      * verify()
+      * verify(uint256 _r , uint256 _m)
       * @notice Una vez la fase de pujas ha finalizado, el postor puede suministrar 
       * sus parámetros secretos para comprobar su compromiso. Si no se verifica correctamente, el postor queda baneado.
+      * @param _r Representa el valor aleatorio del compromiso Pedersen
+      * @param _m Representa el valor de la oferta que se esconde detrás del compromiso Pedersen
       * !Advertencia: es necesario el registro para poder verificar el compromiso
       * !Advertencia: solo es posible la verficacion cuando haya trascurrido la fase de puja
       * !Advertencia: es necesario enviar el ether asociado al valor de la puja que se cifró en el compromiso
