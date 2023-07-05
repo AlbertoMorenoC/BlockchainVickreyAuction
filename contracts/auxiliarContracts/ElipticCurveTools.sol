@@ -2,6 +2,7 @@
 pragma solidity ^0.8.9;
 
 //dbl-1998-cmo-2: Bernstein Formulas
+//LIBRERIA FUNCIONALIDAD CRIPTOGRÁFICA
 library ECTools {
 
     //Orden primo sobre el que se define el grupo sobre el que se define la curva elíptica
